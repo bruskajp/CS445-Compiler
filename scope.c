@@ -14,6 +14,8 @@ scope_t *make_scope()
 	for (i=0; i<HASH_SIZE; i++) {
 		p->table[i] = NULL;
 	}
+	p->return_name = NULL;
+	p->return_needed = 0;
 	p->next = NULL;
 
 	return p;
@@ -35,7 +37,7 @@ node_t *scope_search( scope_t *scope, char *name )
 }
 
 /* local insert */
-node_t *scope_insert( scope_t *scope, char *name )
+node_t *scope_insert( scope_t *scope, char *name, int type, int effective_type )
 {
 	int index;
 	node_t *head;
@@ -43,8 +45,8 @@ node_t *scope_insert( scope_t *scope, char *name )
 	if (scope != NULL) {
 		index = hashpjw(name);
 		head = scope->table[index];
-
-		return scope->table[index] = node_insert(head, name);
+		//fprintf(stderr, "  (type: %d)  ", type);
+		return scope->table[index] = node_insert(head, name, type, effective_type);
 	}
 	else return NULL;
 }

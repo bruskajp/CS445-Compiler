@@ -46,93 +46,107 @@ extern int yydebug;
   enum yytokentype
   {
     INUM = 258,
-    RNUM = 259,
-    ID = 260,
-    ASSIGNOP = 261,
-    RELOP = 262,
-    ADDOP = 263,
-    MULOP = 264,
-    NOT = 265,
-    LT = 266,
-    LE = 267,
-    GT = 268,
-    GE = 269,
-    EQ = 270,
-    NE = 271,
-    OR = 272,
-    PLUS = 273,
-    MINUS = 274,
-    AND = 275,
-    STAR = 276,
-    SLASH = 277,
-    PROGRAM = 278,
-    VAR = 279,
-    ARRAY = 280,
-    OF = 281,
-    DOTDOT = 282,
-    INTEGER = 283,
-    REAL = 284,
-    FUNCTION = 285,
-    PROCEDURE = 286,
-    BBEGIN = 287,
-    END = 288,
-    IF = 289,
-    THEN = 290,
-    ELSE = 291,
-    WHILE = 292,
-    DO = 293,
-    FUNCTION_CALL = 294,
-    ARRAY_ACCESS = 295,
-    COMMA = 296
+    BOOL = 259,
+    RNUM = 260,
+    ID = 261,
+    ASSIGNOP = 262,
+    RELOP = 263,
+    ADDOP = 264,
+    MULOP = 265,
+    LOOP = 266,
+    NOT = 267,
+    LT = 268,
+    LE = 269,
+    GT = 270,
+    GE = 271,
+    EQ = 272,
+    NE = 273,
+    OR = 274,
+    PLUS = 275,
+    MINUS = 276,
+    AND = 277,
+    STAR = 278,
+    SLASH = 279,
+    PROGRAM = 280,
+    VAR = 281,
+    ARRAY = 282,
+    OF = 283,
+    DOTDOT = 284,
+    INTEGER = 285,
+    REAL = 286,
+    BOOLEAN = 287,
+    FUNCTION = 288,
+    PROCEDURE = 289,
+    BBEGIN = 290,
+    END = 291,
+    IF = 292,
+    THEN = 293,
+    ELSE = 294,
+    THENELSE = 295,
+    WHILE = 296,
+    DO = 297,
+    FOR = 298,
+    TO = 299,
+    LINKFOR = 300,
+    FUNCTION_CALL = 301,
+    ARRAY_ACCESS = 302,
+    LINK = 303
   };
 #endif
 /* Tokens.  */
 #define INUM 258
-#define RNUM 259
-#define ID 260
-#define ASSIGNOP 261
-#define RELOP 262
-#define ADDOP 263
-#define MULOP 264
-#define NOT 265
-#define LT 266
-#define LE 267
-#define GT 268
-#define GE 269
-#define EQ 270
-#define NE 271
-#define OR 272
-#define PLUS 273
-#define MINUS 274
-#define AND 275
-#define STAR 276
-#define SLASH 277
-#define PROGRAM 278
-#define VAR 279
-#define ARRAY 280
-#define OF 281
-#define DOTDOT 282
-#define INTEGER 283
-#define REAL 284
-#define FUNCTION 285
-#define PROCEDURE 286
-#define BBEGIN 287
-#define END 288
-#define IF 289
-#define THEN 290
-#define ELSE 291
-#define WHILE 292
-#define DO 293
-#define FUNCTION_CALL 294
-#define ARRAY_ACCESS 295
-#define COMMA 296
+#define BOOL 259
+#define RNUM 260
+#define ID 261
+#define ASSIGNOP 262
+#define RELOP 263
+#define ADDOP 264
+#define MULOP 265
+#define LOOP 266
+#define NOT 267
+#define LT 268
+#define LE 269
+#define GT 270
+#define GE 271
+#define EQ 272
+#define NE 273
+#define OR 274
+#define PLUS 275
+#define MINUS 276
+#define AND 277
+#define STAR 278
+#define SLASH 279
+#define PROGRAM 280
+#define VAR 281
+#define ARRAY 282
+#define OF 283
+#define DOTDOT 284
+#define INTEGER 285
+#define REAL 286
+#define BOOLEAN 287
+#define FUNCTION 288
+#define PROCEDURE 289
+#define BBEGIN 290
+#define END 291
+#define IF 292
+#define THEN 293
+#define ELSE 294
+#define THENELSE 295
+#define WHILE 296
+#define DO 297
+#define FOR 298
+#define TO 299
+#define LINKFOR 300
+#define FUNCTION_CALL 301
+#define ARRAY_ACCESS 302
+#define LINK 303
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 
 union YYSTYPE
 {
-#line 15 "pc.y" /* yacc.c:1909  */
+#line 23 "pc.y" /* yacc.c:1909  */
 
 	/* scanner */
 	int ival;
@@ -141,9 +155,11 @@ union YYSTYPE
 	int opval;
 
 	/* semantic + gencode */
+	node_t *nval;
 	tree_t *tval;
+	types_t *types;
 
-#line 147 "y.tab.h" /* yacc.c:1909  */
+#line 163 "y.tab.h" /* yacc.c:1909  */
 };
 
 typedef union YYSTYPE YYSTYPE;

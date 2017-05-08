@@ -6,7 +6,7 @@ begin
   if ( a < 10 ) then
     if ( a >= 10 ) then
       a := 1
-  else
+  	else
       a := 0;
   write(a)
 end.

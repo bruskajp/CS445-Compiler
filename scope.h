@@ -9,6 +9,8 @@
 typedef struct scope_s {
 	/* hash table: hashing with chaining */
 	node_t *table[HASH_SIZE];
+	char *return_name;
+	int return_needed;
 
 	struct scope_s *next;
 }
@@ -20,7 +22,7 @@ scope_t *make_scope();
 
 /* local search and insert */
 node_t *scope_search( scope_t *head, char *name );
-node_t *scope_insert( scope_t *head, char *name );
+node_t *scope_insert( scope_t *head, char *name, int type, int effective_type );
 
 node_t *scope_search_all( scope_t *head, char *name );
 

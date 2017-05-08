@@ -1,11 +1,13 @@
-mypc: y.tab.o lex.yy.o tree.o scope.o node.o
-	gcc -g -o mypc tree.o scope.o node.o y.tab.o lex.yy.o -ll -ly
+mypc: y.tab.o lex.yy.o tree.o scope.o node.o types.o
+	gcc -g -o mypc tree.o scope.o node.o types.o y.tab.o lex.yy.o -ll -ly
 tree.o: tree.c
 	gcc -g -c tree.c
 scope.o: scope.c
 	gcc -g -c scope.c
 node.o: node.c
 	gcc -g -c node.c
+types.o: types.c
+	gcc -g -c types.c
 y.tab.o: y.tab.c
 	gcc -g -c y.tab.c
 y.tab.c: pc.y

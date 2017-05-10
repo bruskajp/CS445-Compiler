@@ -2,7 +2,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include "tree.h"
 #include "types.h"
+
+extern int line_number;
+typedef struct node_s node_t;
+
+#include "y.tab.h"
 
 types_t *make_types ()
 {
@@ -13,18 +19,23 @@ types_t *make_types ()
   t->types = (int *)malloc(0*sizeof(int));
 }
 
-void insert_type (types_t *t, int type)
+void insert_type (types_t *t, int type, tree_t *expression_list)
 {
   t->size = t->size + 1;
   t->types = (int *)realloc(t->types, t->size*sizeof(int));
   t->types[(t->size)-1] = type;
+	t->expression_list = expression_list;
 }
 
-void free_types (types_t *t)
+void free_types(types_t *t)
 {
-  free(t->types);
-  t->types = NULL;
-  t->size = 0;
+	if ( t != NULL ){
+  	free(t->types);
+  	t->types = NULL;
+  	t->size = 0;
+		free_tree(t->expression_list);
+		free(t);
+	}
 }
 
 void print_types (types_t *t)
@@ -59,9 +70,27 @@ int compare_types (types_t *t1, types_t *t2)
 	}
 }
 
+int deref_type(int type)
+{
+	if ( type == IPTR ){
+		return INUM;
+	} else {
+		semError("Cannot derefence this type");
+	}
+}
+
+int ref_type(int type)
+{
+	if ( type == INUM ){
+		return IPTR;
+	} else {
+		semError("Cannot get refence of this type");
+	}
+}
+
 int semError(char *message)
 { 
-  fprintf(stderr, "\n\nSemantic Error: %s\n", message);
+  fprintf(stderr, "\n\nSemantic Error (line %d): %s\n", line_number, message);
   exit(1);
 }
 

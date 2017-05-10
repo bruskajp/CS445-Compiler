@@ -9,15 +9,22 @@
 #include "scope.h"
 #include "tree.h"
 #include "types.h"
+#include "gencode.h"
 #include "y.tab.h"
 
 extern scope_t *top_scope;
 extern node_t *tmp;
-extern int procedure;
+extern char *filename;
+extern FILE *fp;
+extern int line_number;
+ 
+extern char* res_regs[6];
+extern int used_res_regs[6];
+extern char* exp_regs[6];
+extern int used_exp_regs[6];
 
 extern int yylex();
 extern int yyerror(char *message);
-
 %}
 
 %union {
@@ -36,14 +43,19 @@ extern int yyerror(char *message);
 %token <ival>	INUM
 %token <ival> BOOL
 %token <rval>	RNUM
+%token <ival>	IPTR
 %token <sval>	ID
 
 %token <opval>	ASSIGNOP 
 %token <opval>	RELOP
 %token <opval>	ADDOP
 %token <opval>	MULOP
+%token <opval>	NOTOP
+%token <opval>	REFOP
+%token <opval>	DEREFOP
 %token <noval>  LOOP
-%token	NOT
+
+%token	NOT REF DEREF
 
 %token	LT LE GT GE EQ NE
 %token	OR PLUS MINUS
@@ -52,7 +64,7 @@ extern int yyerror(char *message);
 %token	PROGRAM
 %token	VAR
 %token	ARRAY OF DOTDOT
-%token	INTEGER REAL BOOLEAN
+%token	INTEGER INTEGER_PTR REAL BOOLEAN
 %token	FUNCTION PROCEDURE
 %token	BBEGIN END
 %token	IF THEN ELSE THENELSE
@@ -68,6 +80,7 @@ extern int yyerror(char *message);
 %type <tval> standard_type
 %type <tval> type
 %type <tval> INTEGER
+%type <tval> INTEGER_PTR
 %type <tval> REAL
 %type <tval> BOOLEAN
 %type <tval> variable
@@ -89,22 +102,31 @@ extern int yyerror(char *message);
 %type <tval> simple_expression
 %type <tval> term
 %type <tval> factor
-
+%type <tval> reference
 
 %%
 
 program:
-	{ top_scope = scope_push(top_scope); }
+	{ 
+		gen_asm_init();
+		top_scope = scope_push(top_scope);
+	}
 	PROGRAM ID '(' identifier_list ')' ';' 
 	declarations
 	subprogram_declarations
 	compound_statement
+		{ gen_asm_subprog_decl_fini(top_scope); 
+		}
 	'.'
 	{ 
 		fprintf(stderr, "\n\nPROGRAM START:\n");
+		gen_label($10);
 		print_tree($10, 0);
 		fprintf(stderr, "\n\n");
-		top_scope = scope_pop(top_scope); 
+		gen_asm_code($10);
+		gen_asm_fini(top_scope);
+		//free_tree($10);
+		top_scope = scope_pop(top_scope);
 	}
 	;
 
@@ -130,6 +152,8 @@ declarations
 				semError(msg);
 			}
 			scope_insert(top_scope, (char *) $3, VAR, (uintptr_t) $5);
+			++line_number;
+			fprintf(stderr, " %d ", line_number);
 		}
 	| /* empty */
 	;
@@ -144,6 +168,8 @@ type
 standard_type
 	: INTEGER
 		{ $$ = INUM; }
+	| INTEGER_PTR
+		{ $$ = IPTR; }
 	| BOOLEAN
 		{ $$ = BOOL; }
 	| REAL
@@ -162,9 +188,12 @@ subprogram_declaration
 				semError("Function missing return statement");
 			} 
 			fprintf(stderr, "\n\nPRINTING TREE:\n");
+			gen_label($1);
 			print_tree($1,0);
-			print_tree($4,4);
+			gen_label($4);
 			fprintf(stderr, "\n\n");
+			gen_asm_code($4);
+			//free_tree($4);
 			top_scope = scope_pop(top_scope); 
 		}
 	;
@@ -188,14 +217,13 @@ subprogram_head
 			tmp->parameter_types = $2;
 			top_scope->return_name = NULL;
 			top_scope->return_needed = 0;
-			$$ = make_proc($1);
+			$$ = make_proc($1, $2->expression_list);
 		}
 	;
 
 scoped_name
 	: FUNCTION ID
 		{
-			procedure = 0;
 			if ((tmp = scope_search(top_scope, $2)) != NULL) { 
 				char* msg;
 				asprintf(&msg, "Name \"%s\" is already declared", $2);
@@ -203,17 +231,18 @@ scoped_name
 			}
 			$$ = scope_insert(top_scope, (char *) $2, FUNCTION, (uintptr_t) INTEGER);
 			top_scope = scope_push(top_scope);
+			top_scope->type = 0; // function
 		}
 	| PROCEDURE ID
 		{
-			procedure = 1;
 			if ((tmp = scope_search(top_scope, $2)) != NULL) {
 				char* msg;
 				asprintf(&msg, "Name \"%s\" is already declared", $2);
 				semError(msg);
 			}
-			$$ = scope_insert(top_scope, $2, PROCEDURE, -1); // -1 because proc doesn't have ret val	
+			$$ = scope_insert(top_scope, $2, PROCEDURE, -1); // -1 cuz proc doesn't have ret val	
 			top_scope = scope_push(top_scope);
+			top_scope->type = 1; // procedure
 		}
 	;
 
@@ -242,7 +271,7 @@ parameter_list
 			}
 			scope_insert(top_scope, (char *) $1, VAR, (uintptr_t) $3);
 			types_t *parameter_types = make_types();
-			insert_type(parameter_types, (uintptr_t) $3);
+			insert_type(parameter_types, (uintptr_t) $3, $1);
 			$$ = parameter_types;
 		}
 	| parameter_list ';' identifier_list ':' type
@@ -253,7 +282,7 @@ parameter_list
 				semError(msg);
 			}
 			scope_insert(top_scope, (char *) $3, VAR, (uintptr_t) $5);
-			insert_type($1, (uintptr_t) $5);
+			insert_type($1, (uintptr_t) $5, make_link(LINK, $1->expression_list, $3));
 			$$ = $1;
 		}
 	| /* empty */
@@ -319,6 +348,8 @@ statement
 				}
 			}
 			$$ = make_op(ASSIGNOP, ASSIGNOP, $1, $3);
+			$1->left_leaf = 1;
+			$1->label = 1;
 		}
 	| procedure_statement
 		{
@@ -363,13 +394,13 @@ statement
 variable 
 	: ID
 		{
-			if (procedure){ // TODO: change this to be a scope variable
+			if (top_scope->type == 1){ // procedure
 				if ( (tmp = scope_search_all(top_scope, $1)) == NULL ){
 					char* msg;
 					asprintf(&msg, "Name \"%s\" used but not defined\n", $1);
 					semError(msg);
 				}
-			} else {
+			} else { // function
 				if ( ((tmp = scope_search(top_scope, $1)) == NULL ) ){ 
 					char* msg;
 					asprintf(&msg, "Name \"%s\" used but not defined\n", $1);
@@ -380,12 +411,12 @@ variable
 		}
 	| ID '[' expression ']'
 		{
-			if (procedure){
+			if (top_scope->type == 1){ // procedure
 				if ((tmp = scope_search_all(top_scope, $1)) == NULL) {
 					char* msg;
 					asprintf(&msg, "Name \"%s\" used but not defined\n", $1);
 					semError(msg);
-				} else {
+				} else { // function
 					if ( $3->effective_type != INUM ){
 						semError("Non-integer type for array index");
 					}
@@ -413,31 +444,35 @@ procedure_statement
 				asprintf(&msg, "Name \"%s\" used but not defined\n", $1);
 				semError(msg);
 			}
-			$$ = make_proc(tmp);
+			$$ = make_proc(tmp, NULL);
 		}
 	| ID '(' expression_list ')'
 		{	
-			if ( (strcmp($1, "read") == 0) && (scope_search(top_scope, $1) == NULL) ){ //TODO: 1 arg?
+			if ( (strcmp($1, "read") == 0) && (scope_search_all(top_scope, $1) == NULL) ){
 				tmp = scope_insert(top_scope, $1, PROCEDURE, -1); // no return type
 				tmp->parameter_types = $3;
+				top_scope->offset += 8;
+				gen_asm_write_decl();
+				gen_asm_read_decl();
 				if (tmp->parameter_types->size != 1){
-					semError("Function \"read\" only takes one argument");
+					semError("Procedure \"read\" only takes one argument");
 				}
 			}
-			if ( (strcmp($1, "write") == 0) && (scope_search(top_scope, $1) == NULL) ){
+			if ( (strcmp($1, "write") == 0) && (scope_search_all(top_scope, $1) == NULL) ){
 				tmp = scope_insert(top_scope, $1, PROCEDURE, -1); // no return type
 				tmp->parameter_types = $3;
+				gen_asm_write_decl();
 				if (tmp->parameter_types->size != 1){
-					semError("Function \"write\" only takes one argument");
+					semError("Procedure \"write\" only takes one argument");
 				}
 			}
-			if ( (tmp = scope_search(top_scope, $1)) == NULL ){
+			if ( (tmp = scope_search_all(top_scope, $1)) == NULL ){
 				char* msg;
 				asprintf(&msg, "Name \"%s\" used but not defined\n", $1);
 				semError(msg);
 			}
 			compare_types(tmp->parameter_types, $3);
-			$$ = make_proc(tmp);
+			$$ = make_proc(tmp, $3->expression_list);
 		}
 	;
 
@@ -448,11 +483,11 @@ expression_list
 	: expression
 		{ 	
 			$$ = make_types();
-			insert_type($$, $1->effective_type);
+			insert_type($$, $1->effective_type, $1);
 		}
 	| expression_list ',' expression
 		{ 
-			insert_type($$, $3->effective_type);
+			insert_type($$, $3->effective_type, make_link(LINK, $1->expression_list, $3));
 		}
 	;
 
@@ -460,7 +495,13 @@ expression
 	: simple_expression
 		{ $$ = $1; }
 	| simple_expression RELOP simple_expression
-		{ $$ = make_op(RELOP, $2, $1, $3); }
+		{ 
+			$$ = make_op(RELOP, $2, $1, $3); 
+			if ( $1->left == NULL && $1->right == NULL ){
+				$1->left_leaf = 1;
+				$1->label = 1;
+			}
+		}
 	;
 
 simple_expression
@@ -469,6 +510,10 @@ simple_expression
 	| simple_expression ADDOP term
 		{ 
 			$$ = make_op(ADDOP, $2, $1, $3); 
+			if ( $1->left == NULL && $1->right == NULL ){
+				$1->left_leaf = 1;
+				$1->label = 1;
+			}
 		}
 	;
 
@@ -478,10 +523,25 @@ term
 	| term MULOP factor
 		{ 
 			$$ = make_op(MULOP, $2, $1, $3); 
+			if ( $1->left == NULL && $1->right == NULL ){
+				$1->left_leaf = 1;
+				$1->label = 1;
+			}
 		}
 	;
 
 factor
+	: DEREFOP reference
+		{ $$ = make_op(DEREFOP, deref_type($2->effective_type), NULL, $2); }
+	| REFOP reference
+		{ $$ = make_op(REFOP, ref_type($2->effective_type), NULL, $2); } 
+	| NOTOP reference 
+		{ $$ = make_op(NOT, BOOL, NULL, $2); }
+	| reference
+		{ $$ = $1;}
+	;
+
+reference
 	: ID
 		{ 
 			if ((tmp = scope_search_all(top_scope, $1)) == NULL) {
@@ -518,8 +578,6 @@ factor
 		{ $$ = make_bool($1); }
 	| '(' expression ')'
 		{ $$ = $2; }
-	| NOT factor /* TODO: HANDLE THIS CASE FOR "effective_type" */
-		{ $$ = make_tree(NOT, BOOL, NULL, $2); }
 	;
 
 
@@ -527,7 +585,15 @@ factor
 	
 scope_t *top_scope;
 node_t *tmp;
-int procedure;
+char *filename = "indsa.s";
+FILE *fp; 
+int line_number = 0;
+
+char* res_regs[6] = {"%edi","%esi","%edx","%ecx","%r8d","%r9d"};
+int used_res_regs[6] = {0,0,0,0,0,0};
+char* exp_regs[6] = {"%r10d","%r11d","%r12d", "%r13d", "%r14d", "%r15d"};
+int used_exp_regs[6] = {0,0,0,0,0,0};
+
 
 int main()
 {

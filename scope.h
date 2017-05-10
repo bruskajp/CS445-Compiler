@@ -11,6 +11,8 @@ typedef struct scope_s {
 	node_t *table[HASH_SIZE];
 	char *return_name;
 	int return_needed;
+	int offset;
+	int type;
 
 	struct scope_s *next;
 }
@@ -30,6 +32,7 @@ node_t *scope_search_all( scope_t *head, char *name );
 scope_t *scope_push(scope_t *);
 scope_t *scope_pop(scope_t *);
 
+void free_scope(scope_t *);
 
 #endif
 

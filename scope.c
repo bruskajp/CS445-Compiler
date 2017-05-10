@@ -17,6 +17,8 @@ scope_t *make_scope()
 	p->return_name = NULL;
 	p->return_needed = 0;
 	p->next = NULL;
+	p->offset = 0;
+	p->type = 0;
 
 	return p;
 }
@@ -43,10 +45,15 @@ node_t *scope_insert( scope_t *scope, char *name, int type, int effective_type )
 	node_t *head;
 
 	if (scope != NULL) {
+		
 		index = hashpjw(name);
 		head = scope->table[index];
+		
+		scope->offset += 4;
+		int offset = scope->offset;
+		
 		//fprintf(stderr, "  (type: %d)  ", type);
-		return scope->table[index] = node_insert(head, name, type, effective_type);
+		return scope->table[index] = node_insert(head, name, type, effective_type, offset);
 	}
 	else return NULL;
 }
@@ -91,6 +98,17 @@ scope_t *scope_pop( scope_t *top )
 	else return NULL;
 }
 
+void free_scope(scope_t *scope)
+{
+	if ( scope != NULL ){
+		int i = 0;
+		for(; i<HASH_SIZE; ++i){
+			if ( scope->table[i] != NULL ){
+				free_node(scope->table[i]);
+			}
+		}
+	}
+}
 
 /* Weinberger's magic hash function */
 /* page 436 Dragon 1 */

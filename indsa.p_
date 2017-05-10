@@ -1,0 +1,8 @@
+program main (a); 
+	var c : ^integer;
+	var a : integer;
+	var b : boolean;
+begin
+	c := @a;
+	a := ^c
+end.

@@ -9,24 +9,27 @@
 #include "y.tab.h"
 
 void echo(char *);
+void print_line_number();
+extern int line_number;
 
 %}
 
 ident				[a-zA-Z][a-zA-Z0-9]*
 number			[0-9]+
 whitespace	[ \t]+
-comment			\(\*.*\*\)
+comment			\(\*(.*\n*)*\*\)|\/\/.*
 boolean			true|false
 
 %%
 
 {comment} { /* do nothing */ }
 
-"program"	{ echo("PROGRAM"); return PROGRAM; }
+"program"	{ print_line_number(); echo("PROGRAM"); return PROGRAM; }
 "var"		{ echo("VAR"); return VAR; }
 "array"		{ echo("ARRAY"); return ARRAY; }
 "of"		{ echo("OF"); return OF; }
 "integer"	{ echo("INTEGER"); return INTEGER; }
+"^integer"	{ echo("INTEGER_POINTER"); return INTEGER_PTR; }
 "real"		{ echo("REAL"); return REAL; }
 "boolean" { echo("BOOLEAN"); return BOOLEAN; }
 "function"	{ echo("FUNCTION"); return FUNCTION; }
@@ -40,17 +43,16 @@ boolean			true|false
 "do"		{ echo("DO"); return DO; }
 "for"		{ echo("FOR"); return FOR; }
 "to"		{ echo("TO"); return TO; }
-"not"		{ echo("NOT"); return NOT; }
 
 ".."		{ echo("DOTDOT"); return DOTDOT; }
 ":="		{ echo("ASSIGNOP"); return ASSIGNOP; }
 
-"="		{ fprintf(stderr, "RELOP[%s]", yytext); return RELOP; }
-"<>"		{ fprintf(stderr, "RELOP[%s]", yytext); return RELOP; }
-"<"		{ fprintf(stderr, "RELOP[%s]", yytext); return RELOP; }
-"<="		{ fprintf(stderr, "RELOP[%s]", yytext); return RELOP; }
-">"		{ fprintf(stderr, "RELOP[%s]", yytext); return RELOP; }
-">="		{ fprintf(stderr, "RELOP[%s]", yytext); return RELOP; }
+"="		{ fprintf(stderr, "RELOP[%s]", yytext); yylval.opval = EQ; return RELOP; }
+"<>"		{ fprintf(stderr, "RELOP[%s]", yytext); yylval.opval = NE; return RELOP; }
+"<"		{ fprintf(stderr, "RELOP[%s]", yytext); yylval.opval = LT; return RELOP; }
+"<="		{ fprintf(stderr, "RELOP[%s]", yytext); yylval.opval = LE; return RELOP; }
+">"		{ fprintf(stderr, "RELOP[%s]", yytext); yylval.opval = GT; return RELOP; }
+">="		{ fprintf(stderr, "RELOP[%s]", yytext); yylval.opval = GE; return RELOP; }
 
 "or"		{ fprintf(stderr, "ADDOP[%s]", yytext); yylval.opval = OR; return ADDOP; }
 "+"		{ fprintf(stderr, "ADDOP[%s]", yytext); yylval.opval = PLUS; return ADDOP; }
@@ -59,6 +61,11 @@ boolean			true|false
 "*"		{ fprintf(stderr, "MULOP[%s]", yytext); yylval.opval = STAR; return MULOP; }
 "/"		{ fprintf(stderr, "MULOP[%s]", yytext); yylval.opval = SLASH; return MULOP; }
 
+"not"		{ fprintf(stderr, "NOTOP[%s]", yytext); yylval.opval = NOT; return NOTOP; }
+"^"		{ fprintf(stderr, "DEREFOP[%s]", yytext); yylval.opval = DEREF; return DEREFOP; }
+"@"		{ fprintf(stderr, "REFOP[%s]", yytext); yylval.opval = REF; return REFOP; }
+
+
 "true" { fprintf(stderr, "BOOLEAN[%d]",  yylval.ival = 1); return BOOL; } 
 "false" { fprintf(stderr, "BOOLEAN[%d]",  yylval.ival = 0); return BOOL; } 
 
@@ -66,7 +73,7 @@ boolean			true|false
 {number}"."{number}	{ fprintf(stderr, "RNUM[%f]", yylval.rval = atof(yytext)); return RNUM; }
 {ident}			{ fprintf(stderr, "ID[%s]", yylval.sval = strdup(yytext)); return ID; }
 {whitespace}	{ ; }
-\n		{ fprintf(stderr,"%s", yytext); }
+\n		{ fprintf(stderr,"%s", yytext); print_line_number(); }
 .		{ fprintf(stderr, "{%c}", yytext[0]); return yytext[0]; }
 
 %%
@@ -76,7 +83,11 @@ void echo(char *message)
 	fprintf(stderr, "{%s}", message);
 }
 
-
+void print_line_number()
+{
+	++line_number; 
+	fprintf(stderr, " %d ", line_number);
+}
 
 
 
